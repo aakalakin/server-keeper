@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+
+import re
+import sys
+import os
+import subprocess
+import re
+
+path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/'
+sys.path.append(path)
+import config
+import utils
+
+cmd = 'ps aux'
+res = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+out, err = res.communicate()
+output = out.decode('utf-8', 'ignore').split('\n')
+
+processes = []
+warning = []
+bypass = [
+    'php-fpm:\spool\ss\d+',
+    'sshd',
+    'php',
+    'node',
+    '/bin/sh',
+    '/bin/bash',
+    '(/usr/bin/|)wget',
+    '(/usr/bin/|)node(js|)',
+]
+for line in output:
+    tmp = re.split(r'\s+', line.strip())
+    if re.match(r's\d+', tmp[0]):
+        length = len(tmp)
+        if length > 11:
+            tmp[10] = ' '.join(tmp[10:])
+        if length < 11 or tmp[10] in ['exim', 'postfix', 'sendmail', '/usr/bin/host', 'php55']:
+            utils.run('kill -9 {0}'.format(tmp[1]))
+            processes.append(line.strip())
+        elif not re.search(r'(' + '|'.join(bypass) + ')', tmp[10]):
+            warning.append(line.strip())
+
+if len(processes):
+    utils.send_email(
+        'Killed infected processes',
+        '<pre>{0}</pre>'.format('\n'.join(processes)),
+        config.watchdog['receivers']
+    )
+
+"""
+if len(warning):
+    utils.send_email(
+        'Found suspicious processes',
+        '<pre>{0}</pre>'.format('\n'.join(warning)),
+        config.watchdog['receivers']
+    )
+"""

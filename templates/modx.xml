@@ -1,0 +1,35 @@
+<modx>
+    <database_type>mysql</database_type>
+    <database_server>127.0.0.1</database_server>
+    <database>{user}</database>
+    <database_user>{user}</database_user>
+    <database_password>{mysql}</database_password>
+    <database_connection_charset>{charset}</database_connection_charset>
+    <database_charset>{charset}</database_charset>
+    <database_collation>{charset}_unicode_ci</database_collation>
+    <table_prefix>{prefix}</table_prefix>
+    <https_port>443</https_port>
+    <http_host>{domain}</http_host>
+    <cache_disabled>0</cache_disabled>
+
+    <inplace>0</inplace>
+
+    <unpacked>0</unpacked>
+
+    <language>{language}</language>
+
+    <cmsadmin>{user}</cmsadmin>
+    <cmspassword>{password}</cmspassword>
+    <cmsadminemail>admin@{domain}</cmsadminemail>
+
+    <core_path>{user_home}{user}/www/{core}/</core_path>
+
+    <context_mgr_path>{user_home}{user}/www/{manager}/</context_mgr_path>
+    <context_mgr_url>/{manager}/</context_mgr_url>
+    <context_connectors_path>{user_home}{user}/www/{connectors}/</context_connectors_path>
+    <context_connectors_url>/{connectors}/</context_connectors_url>
+    <context_web_path>{user_home}{user}/www/</context_web_path>
+    <context_web_url>/</context_web_url>
+
+    <remove_setup_directory>1</remove_setup_directory>
+</modx>

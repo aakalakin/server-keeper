@@ -1,0 +1,4 @@
+# Look for and purge old sessions every 30 minutes
+
+09,39 *     * * *     root   /usr/lib/php/sessionclean
+09,39 *     * * *     root   find /jail/var/lib/php/sessions/ -atime +7 -type f -exec rm {} +

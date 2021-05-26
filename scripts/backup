@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+
+import re
+import sys
+import os
+
+path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/'
+sys.path.append(path)
+import logging
+import config
+import utils
+from actions.backup import Backup
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+Backup.export()
+users = os.listdir(config.path['home'])
+
+# Make new backups for current users
+for user in users:
+    if os.path.isdir(config.path['home'] + user):
+        response = Backup(user, {}).create()
+        if not response['success']:
+            utils.send_email('Backup error on site {}'.format(user), response['message'], config.watchdog['receivers'])
+
+# Remove old backups of deleted users
+response = Backup.rclone('lsf', 'yandex-cloud:modhost/{} --dirs-only'.format(config.server['domain']))
+if response['success']:
+    tmp = response['message'].strip().split('\n')
+    for user in tmp:
+        user = user.strip('/')
+        if user not in users:
+            response = Backup(user, {}).duplicity('remove-older-than ' + config.backup['max_days'])
+            if re.search(r'manually purge the repository', response['message'], re.MULTILINE):
+                Backup.rclone('purge', 'yandex-cloud:modhost/{0}/{1}'.format(config.server['domain'], user))
+else:
+    utils.send_email('Could not delete old backups on {}'.format(config.server['domain']),
+                     response['message'], config.watchdog['receivers'])
+
+Backup.rclone('cleanup', 'yandex-cloud:modhost')

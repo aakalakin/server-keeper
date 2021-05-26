@@ -1,0 +1,15 @@
+[Unit]
+Description=Server Keeper Service
+
+[Service]
+Type=forking
+OOMScoreAdjust=-100
+TimeoutSec=60
+Restart=always
+PIDFile=/var/run/server-keeper.pid
+ExecStart=/home/bezumkin/server-keeper/scripts/server-keeper start
+ExecStop=/home/bezumkin/server-keeper/scripts/server-keeper stop
+ExecReload=/bin/kill -USR2 $MAINPID
+
+[Install]
+WantedBy=multi-user.target

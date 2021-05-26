@@ -1,0 +1,695 @@
+#!/usr/bin/python3
+
+import re
+import sys
+import os
+
+working_path = os.path.dirname(os.path.dirname(__file__)) + '/'
+sys.path.append(working_path)
+import logging
+import config
+import utils
+from random import randint
+
+
+class Prepare:
+    def __init__(self, method):
+        if hasattr(self.__class__, method) and callable(getattr(self.__class__, method)):
+            action = getattr(self.__class__, method)
+            try:
+                action(self)
+            except TypeError:
+                action()
+        else:
+            print('There is no such action!')
+            pass
+
+    def new(self):
+        print('Add new server')
+        self.set_server_name()
+        self.set_rc_local()
+        self.add_repositories()
+        self.install_packages()
+        self.setup_jail()
+        self.update_jail()
+        self.setup_admin()
+        self.setup_ssh()
+        self.setup_mysql()
+        self.setup_php()
+        self.setup_smtp()
+        self.setup_timezone()
+        self.setup_nginx()
+        #self.setup_munin()
+        self.setup_locale()
+        self.setup_backups()
+        self.setup_cron()
+        self.setup_quotas()
+        self.setup_developer()
+        self.disable_mod()
+        self.setup_default_site(True)
+        self.register_services()
+        self.setup_pma()
+        self.setup_sprut()
+
+    def update(self):
+        print('Update server')
+        self.add_repositories()
+        self.install_packages()
+        self.setup_developer()
+        self.update_jail()
+
+    def upgrade(self):
+        pass
+        # self.add_repositories()
+        # self.install_packages()
+        # self.setup_mysql()
+        # self.setup_php()
+        # self.setup_developer()
+        # self.update_jail()
+
+    @staticmethod
+    def set_server_name():
+        if config.server['domain'] == '':
+            domain = input('Please, enter name of this server: ')
+            file = open(config.path['etc'] + 'hostname', 'w')
+            file.write(domain)
+            file.close()
+            config.server['domain'] = domain
+
+    @staticmethod
+    def set_rc_local():
+        utils.run(
+            'touch /etc/rc.local && '
+            'chmod +x /etc/rc.local && '
+            'printf "#!/bin/bash\n\nexit 0" > /etc/rc.local'
+        )
+        utils.run('ln -s {0}systemd/rc-local.service /etc/systemd/system'.format(working_path))
+        utils.run('systemctl enable /etc/systemd/system/rc-local.service')
+
+    @staticmethod
+    def add_repositories():
+        logging.info('Add repositories')
+        utils.run('apt-get install software-properties-common -y')
+        utils.run('add-apt-repository ppa:ondrej/php -y')
+        utils.run('add-apt-repository ppa:nginx/development -y')
+        utils.run('add-apt-repository ppa:duplicity-team/ppa -y')
+        utils.run('dpkg --add-architecture i386')
+        utils.run('apt-get install curl -y')
+        utils.run('curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -')
+        utils.run('add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu '
+                  '$(lsb_release -cs) stable"')
+        utils.run(
+            'echo "deb https://deb.nodesource.com/node_12.x bionic main" > /etc/apt/sources.list.d/nodesource.list && '
+            'wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -'
+        )
+
+    @staticmethod
+    def install_packages():
+        logging.info('Install and upgrade packages')
+        utils.run('apt-get update')
+        # Set defaults
+        utils.run('echo "mysql-server mysql-server/root_password password {0}" | debconf-set-selections'.format(
+            config.password['mysql'])
+        )
+        utils.run('echo "mysql-server mysql-server/root_password_again password {0}" | debconf-set-selections'.format(
+            config.password['mysql'])
+        )
+        utils.run('echo "postfix postfix/mailname string {}" | debconf-set-selections'.format(config.host))
+        utils.run('echo "postfix postfix/main_mailer_type string \'Internet Site\'" | debconf-set-selections')
+        # Install packages
+        utils.run(
+            'apt-get install -y --force-yes -o Acquire::ForceIPv4=true -o Dpkg::Options::="--force-confdef" '
+            # 'apt-get install -y '
+            'nginx microcode.ctl intel-microcode python-boto '
+            'php5.6-fpm php5.6-mcrypt php5.6-mbstring php5.6-mysql php5.6-curl php5.6-cli php5.6-soap php5.6-zip '
+            'php5.6-json php5.6-gd php5.6-xml php5.6-ldap php5.6-pgsql '
+            'php7.0-fpm php7.0-mcrypt php7.0-mbstring php7.0-mysql php7.0-curl php7.0-cli php7.0-soap php7.0-zip '
+            'php7.0-json php7.0-gd php7.0-xml php7.0-ldap php7.0-pgsql '
+            'php7.1-fpm php7.1-mcrypt php7.1-mbstring php7.1-mysql php7.1-curl php7.1-cli php7.1-soap php7.1-zip '
+            'php7.1-json php7.1-gd php7.1-xml php7.1-ldap php7.1-pgsql '
+            'php7.2-fpm php7.2-mbstring php7.2-mysql php7.2-curl php7.2-cli php7.2-soap php7.2-zip '
+            'php7.2-json php7.2-gd php7.2-xml php7.2-ldap php7.2-pgsql '
+            'php7.3-fpm php7.3-mbstring php7.3-mysql php7.3-curl php7.3-cli php7.3-soap php7.3-zip '
+            'php7.3-json php7.3-gd php7.3-xml php7.3-ldap php7.3-pgsql '
+            'php7.4-fpm php7.4-mbstring php7.4-mysql php7.4-curl php7.4-cli php7.4-soap php7.4-zip '
+            'php7.4-json php7.4-gd php7.4-xml php7.4-ldap php7.4-pgsql '
+            'php-db php-mbstring php-xml php-imagick php-json php-soap php-zip '
+            'php-bcmath php5.6-bcmath php7.0-bcmath php7.1-bcmath php7.2-bcmath php7.3-bcmath php7.4-bcmath '
+            'php-intl php7.0-intl php7.1-intl php7.2-intl php7.3-intl php7.4-intl '
+            'certbot imagemagick git docker-ce '
+            'nginx mysql-server unzip zip postfix htop mc quota quotatool duplicity nodejs curl '
+            'percona-toolkit screen ' #munin-node
+            'libc6:i386 libncurses5:i386 libstdc++6:i386 libwebpmux3 '
+        )
+
+        res = utils.run('convert --version')
+        if not re.match(r'.*?7\.0\.8', res['message']):
+            utils.run('dpkg -i {0}imagemagick-7.0.8_49-1_amd64.deb'.format(config.path['packages']))
+
+        logging.info('Remove old packages')
+        utils.run('apt-get autoremove -y')
+
+    @staticmethod
+    def setup_php():
+        logging.info('Setup PHP')
+        utils.file_replace(config.path['php-cli'] + 'php.ini', 'memory_limit =', 'memory_limit = 512M')
+        utils.file_replace(
+            config.path['php-cli'] + 'php.ini',
+            '^(;|)date\.timezone =',
+            'date.timezone = ' + config.timezone
+        )
+        utils.file_replace(
+            config.path['php-cli'] + 'php.ini',
+            'error_reporting =',
+            'error_reporting = E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT'
+        )
+        logging.info('Add session cleaner to the Jail')
+        # utils.run('cp {0}{1} -f /etc/cron.d/{2}'.format(config.path['templates'], 'php-sess.cron', 'php5-jail'))
+        utils.file_add(config.path['etc'] + 'crontab',
+                       '09,39 *     * * *     root   find /jail/var/lib/php/sessions/ -atime +7 -type f -exec rm {} +'
+                       .format(working_path))
+        utils.run('update-alternatives --set php /usr/bin/php7.0')
+
+        logging.info('Enable MySQL legacy extension')
+        utils.run('cp {0}php/5.6/mysql.so /usr/lib/php/20131226/'.format(config.path['packages']))
+        utils.run('cp {0}php/7.0/mysql.so /usr/lib/php/20151012/'.format(config.path['packages']))
+        utils.run('cp {0}php/mysql.ini /etc/php/5.6/mods-available/'.format(config.path['packages']))
+        utils.run('cp {0}php/mysql.ini /etc/php/7.0/mods-available/'.format(config.path['packages']))
+
+        utils.run('phpenmod mysql mcrypt')
+
+        utils.file_replace('/etc/php/5.6/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+        utils.file_replace('/etc/php/7.0/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+        utils.file_replace('/etc/php/7.1/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+
+    @staticmethod
+    def setup_mysql():
+        logging.info('Setup MySQL')
+        utils.run('rm -rf {0}mysql/conf.d'.format(config.path['etc']))
+        utils.run('rm -rf {0}mysql/mysql.conf.d'.format(config.path['etc']))
+        utils.run('rm -rf {0}mysql/my.cnf'.format(config.path['etc']))
+        utils.run('rm {0}mysql/conf.d/mysql.cnf'.format(config.path['etc']))
+
+        utils.run('cp {0}mysql/my.cnf {1}mysql/'.format(config.path['templates'], config.path['etc']))
+        utils.run('chown mysql:root {0}mysql/my.cnf && chmod 0640 {0}mysql/my.cnf'.format(config.path['etc']))
+
+        utils.service('mysql', 'stop')
+        utils.run('sudo usermod -d /var/lib/mysql/ mysql')
+        utils.service('mysql', 'start')
+        logging.info('Upgrading tables...')
+        utils.run('mysql_upgrade -uroot')
+
+        utils.file_add('/etc/pam.d/common-session', 'session required pam_limits.so')
+
+        logging.info('Enable pt-kill')
+        utils.run('ln -s {0}systemd/pt-kill.service /etc/systemd/system'.format(working_path))
+        utils.run('systemctl enable pt-kill')
+        utils.run('systemctl start pt-kill && systemctl status pt-kill')
+
+    @staticmethod
+    def setup_ssh():
+        logging.info('Setup SSH')
+
+        utils.file_replace(config.path['ssh'] + 'sshd_config', '(#|)PasswordAuthentication', 'PasswordAuthentication yes')
+        utils.file_replace(config.path['ssh'] + 'sshd_config', '(#|)PermitRootLogin', 'PermitRootLogin no')
+        utils.file_replace(config.path['ssh'] + 'sshd_config', '(#|)PrintMotd', 'PrintMotd no')
+        remove = utils.file_remove(config.path['ssh'] + 'sshd_config', '^Subsystem\s+sftp\s+/usr/')
+        if remove:
+            utils.file_add(
+                config.path['ssh'] + 'sshd_config',
+                '\n'
+                'Subsystem sftp internal-sftp\n'
+                'Match Group jail\n\t'
+                'ChrootDirectory {0}\n\t'
+                'AllowTCPForwarding yes'.format(config.path['jail'])
+            )
+        utils.service('ssh', 'restart')
+
+    @staticmethod
+    def setup_timezone():
+        utils.run('ln -sf /usr/share/zoneinfo/{0} /etc/localtime'.format(config.timezone))
+
+    @staticmethod
+    def setup_default_site(get_cert=False):
+        logging.info('Setup default site')
+
+        # Delete old files
+        utils.run('rm -rf {0}default_site'.format(config.path['nginx']))
+        utils.run('rm {0}sites-available/default'.format(config.path['nginx']))
+        utils.run('rm {0}sites-enabled/default'.format(config.path['nginx']))
+
+        # Copy new config
+        placeholders = {
+            '{root}': config.path['templates'],
+        }
+        nginx = utils.template(config.path['templates'] + 'nginx/default.conf', placeholders)
+        dst = config.path['nginx'] + 'sites-available/default.conf'
+        file = open(dst, 'w')
+        file.write(nginx)
+        file.close()
+
+        utils.run('chmod -R go=rX,u=rwX {}default_site/'.format(config.path['templates']))
+        utils.run('ln -s {0}sites-available/default.conf {0}sites-enabled/'.format(config.path['nginx']))
+        utils.run('mkdir {}acme'.format(config.path['nginx']))
+        if not os.path.isfile('/etc/nginx/ssl/nginx_ssl.crt'):
+            utils.run('mkdir /etc/nginx/ssl')
+            utils.run('cp {0}nginx/nginx_ssl.* /etc/nginx/ssl/'.format(config.path['templates']))
+
+        if get_cert is True:
+            logging.info('Setup Nginx certificates')
+            min = randint(1, 59)
+            hour = randint(1, 23)
+            day = randint(1, 27)
+            utils.file_remove(config.path['etc'] + 'crontab', '.*?get_main_cert')
+            utils.file_add(
+                config.path['etc'] + 'crontab',
+                '{0} {1}     {2} * *   root    {3}action.py'.format(min, hour, day, working_path) +
+                ' \'{"action":"nginx","user":"default","command":"get_main_cert"}\''
+            )
+            from actions.nginx import Nginx
+            Nginx('default', {'command': 'get_main_cert'}).process()
+        else:
+            utils.service('nginx', 'restart')
+
+    def setup_sprut(self):
+        # self.add_repositories()
+        # self.install_packages()
+        logging.info('Setup Sprut.io')
+
+        utils.run('cat /etc/shadow | egrep "^s[0-9]+\:" > {}etc/shadow'.format(config.path['jail']))
+        utils.run('chmod 640 {0}etc/shadow && chown root:shadow {0}etc/shadow'.format(config.path['jail']))
+        utils.run('mkdir /opt')
+        utils.run('mkdir /opt/sprutio')
+        utils.run('cp -f {0}sprut/* /opt/sprutio/'.format(config.path['templates']))
+        utils.run('ln /etc/nginx/ssl/nginx_ssl.crt /etc/nginx/ssl/sprutio.crt')
+        utils.run('ln /etc/nginx/ssl/nginx_ssl.key /etc/nginx/ssl/sprutio.key')
+        utils.run(
+            'wget https://github.com/docker/compose/releases/download/1.5.2/docker-compose-Linux-x86_64 -O '
+            '/opt/sprutio/docker-compose && chmod +x /opt/sprutio/docker-compose'
+        )
+        self.clean_docker()
+        import subprocess
+        subprocess.Popen(
+            'cd {0} && ./docker-compose -p sprutio rm -f && ./docker-compose -p sprutio pull && '
+            './docker-compose -p sprutio up -d'.format('/opt/sprutio/'), shell=True
+        )
+        utils.file_remove(config.path['etc'] + 'rc.local', 'exit 0')
+        utils.file_remove(config.path['etc'] + 'rc.local', '/opt/sprutio/docker-compose')
+        utils.file_add(config.path['etc'] + 'rc.local', 'cd /opt/sprutio/ && ./docker-compose -p sprutio start')
+
+    @staticmethod
+    def clean_docker():
+        res = utils.run('docker ps --filter status=dead --filter status=exited -aq | xargs -r docker rm -v')
+        print(res['message'])
+        res = utils.run('docker images --no-trunc | grep \'<none>\' | awk \'{ print $3 }\' | xargs -r docker rmi')
+        print(res['message'])
+        res = utils.run('docker volume ls -qf dangling=true | xargs -r docker volume rm')
+        print(res['message'])
+
+    @staticmethod
+    def disable_mod():
+        logging.info('Disable Message Of The Day')
+        utils.run('apt-get purge -y landscape-client landscape-common')
+        utils.file_remove('/etc/pam.d/login', 'session.*?optional.*?pam_motd\.so')
+        utils.file_remove('/etc/pam.d/sshd', 'session.*?optional.*?pam_motd\.so')
+
+    @staticmethod
+    def setup_smtp():
+        logging.info('Setup SMTP')
+        utils.file_replace('/etc/postfix/master.cf', 'smtp\s+inet',
+                           '127.0.0.1:smtp      inet  n       -       -       -       -       smtpd')
+        utils.file_replace('/etc/postfix/master.cf', 'bounce\s+unix',
+                           'bounce    unix  -       -       -       -       0       discard')
+        utils.file_replace('/etc/postfix/master.cf', 'defer\s+unix',
+                           'defer     unix  -       -       -       -       0       discard')
+        """utils.file_add(
+            '/etc/postfix/main.cf',
+            '\nsmtp_tls_mandatory_protocols = !SSLv2, !SSLv3\n'
+            'smtp_tls_security_level = may\n'
+            'smtp_tls_ciphers = export\n'
+            'smtp_tls_protocols = !SSLv2, !SSLv3\n'
+            'smtp_tls_loglevel = 1\n'
+        )"""
+
+        logging.info('Copy mini_sendmail')
+        utils.run('mkdir {0}/usr/sbin/'.format(config.path['jail']))
+        utils.run('cp {0}sendmail {1}/usr/sbin/sendmail'.format(config.path['packages'], config.path['jail']))
+        utils.run('chown root:mail {0}/usr/sbin/sendmail'.format(config.path['jail']))
+        utils.run('chmod +x {0}/usr/sbin/sendmail'.format(config.path['jail']))
+        utils.run('chmod 0755 {0}/usr/sbin/sendmail'.format(config.path['jail']))
+
+        utils.run('chmod +x {0}packages/iptables'.format(working_path))
+        utils.file_add(
+            config.path['etc'] + 'rc.local', '{0}packages/iptables'.format(working_path)
+        )
+
+        logging.info('Setup params')
+        params = {
+            'relayhost': '[mail.modhost.pro]:25',
+            'myorigin': '/etc/hostname',
+            'mydestination': ' ',
+            'inet_interfaces': 'loopback-only',
+            'smtp_tls_mandatory_protocols': '!SSLv2, !SSLv3',
+            'smtp_tls_security_level': 'may',
+            'smtp_tls_ciphers': 'export',
+            'smtp_tls_protocols': '!SSLv2, !SSLv3',
+            'maximal_backoff_time': '15m',
+            'minimal_backoff_time': '5m',
+            'smtp_tls_loglevel': '1',
+            'smtpd_reject_unlisted_sender': 'yes',
+            'smtpd_data_restrictions': 'reject_unauth_pipelining',
+            'smtpd_helo_required': 'yes',
+            'strict_rfc821_envelopes': 'yes',
+            'disable_vrfy_command': 'yes',
+        }
+        for param in params:
+            utils.run('postconf -e "{0} = {1}"'.format(param, params[param]))
+
+        utils.service('postfix', 'restart')
+
+    @staticmethod
+    def setup_nginx():
+        logging.info('Setup Nginx')
+        utils.run('cp -f {0}nginx/mime.types {1}mime.types'.format(config.path['templates'], config.path['nginx']))
+        utils.run('cp -f {0}nginx/server.conf {1}nginx.conf'.format(config.path['templates'], config.path['nginx']))
+        res = utils.run("nproc")
+        if res["success"] is True:
+            cpu = int(res["message"])
+        else:
+            cpu = 2
+        utils.file_replace(
+            config.path['nginx'] + 'nginx.conf',
+            '^worker_processes',
+            'worker_processes                    {};'.format(cpu)
+        )
+        utils.file_add(config.path['nginx'] + 'fastcgi_params', 'fastcgi_param	HTTP_HOST		$host;')
+
+    """
+    @staticmethod
+    def setup_munin():
+        logging.info('Setup Munin')
+        utils.run('cp {0}munin/munin-node.conf {1}'.format(config.path['templates'], config.path['munin']))
+    """
+
+    @staticmethod
+    def setup_locale():
+        logging.info('Setup locales')
+        utils.run('apt install language-pack-ru -y')
+        utils.run('apt install language-pack-nl -y')
+        utils.run('apt install language-pack-de -y')
+
+    @staticmethod
+    def setup_backups():
+        logging.info('Setup backups')
+        add = utils.file_add(
+            config.path['etc'] + 'crontab',
+            '0 23    * * *   root    {0}scripts/backup'.format(working_path)
+        )
+        if add:
+            utils.service('cron')
+            utils.run('mkdir {0} && chown www-data:www-data {0} && chmod 0500 {0}'.format(
+                config.path['user']['backups']
+            ))
+
+        logging.info('Setup Rclone')
+        utils.run('curl https://rclone.org/install.sh | bash')
+
+    @staticmethod
+    def setup_cron():
+        logging.info('Add watchdog')
+        utils.file_add(
+            config.path['etc'] + 'crontab',
+            '*/10 *    * * *   root    {0}scripts/watchdog'.format(working_path)
+        )
+        logging.info('Add scanner for infections')
+        utils.file_add(
+            config.path['etc'] + 'crontab',
+            '10 5    */2 * *   root    {0}scripts/scan_all'.format(working_path)
+        )
+        logging.info('Add processes checker')
+        utils.file_add(
+            config.path['etc'] + 'crontab',
+            '*/2  *    * * *   root    {0}scripts/check_processes'.format(working_path)
+        )
+        utils.service('cron')
+
+    @staticmethod
+    def setup_quotas():
+        logging.info('Setup quotas')
+        file = open(config.path['etc'] + 'fstab', 'r')
+        strings = file.read()
+        if not os.path.isfile(config.path['etc'] + 'fstab.dist'):
+            dist = open(config.path['etc'] + 'fstab.dist', 'w')
+            dist.write(strings)
+            dist.close()
+        strings = strings.split('\n')
+        i = 0
+        root = ''
+        for string in strings:
+            matches = re.match(r'^(?:/dev/|UUID=)(.*?)\s+/\s+.*?\s+(.*?)\s', string)
+            if matches:
+                root = matches.groups()[0]
+                if not re.search(r'(quota)+', matches.groups()[1]):
+                    strings[i] = string.replace(
+                        matches.groups()[1],
+                        str(matches.groups()[1]) + ',usrjquota=aquota.user,grpjquota=aquota.group,jqfmt=vfsv0'
+                    )
+            i += 1
+        file.close()
+        file = open(config.path['etc'] + 'fstab', 'w')
+        file.write('\n'.join(strings))
+        file.close()
+        # Add creating of symlink to /dev/root
+        utils.file_remove(config.path['etc'] + 'rc.local', 'exit 0')
+        utils.file_add(config.path['etc'] + 'rc.local', 'ln -s /dev/' + root + ' /dev/root')
+        utils.file_add(config.path['etc'] + 'rc.local', 'service quota restart')
+        # Remount disk
+        utils.run('mount -o remount /')
+        utils.run('ln -s /dev/' + root + ' /dev/root')
+        utils.run('quotacheck -vugcm --format=vfsv0 /')
+        utils.run('quotaon -vug --format=vfsv0 /')
+
+    @staticmethod
+    def setup_developer():
+        logging.info('Install or update developer packages')
+        # Composer
+        utils.run('curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin/')
+        # Grunt
+        #utils.run('npm install --global grunt-cli')
+        # Gulp
+        #utils.run('npm install --global gulp')
+        # Yarn
+        #utils.run('npm install --global yarn')
+        # Shortcuts
+        utils.run('ln -s /usr/bin/nodejs /usr/bin/node')
+        for file in ['composer']:
+            utils.run('cp {0}dev/{1} {2}bin/{1} && chmod +x {2}bin/{1}'.format(
+                config.path['packages'], file, config.path['jail']
+            ))
+
+    @staticmethod
+    def setup_jail():
+        logging.info('Setup Jail')
+        utils.run('addgroup jail')
+        utils.run('dpkg -i {0}jailkit_2.17-1_amd64.deb'.format(config.path['packages']))
+        utils.run('mkdir ' + config.path['jail'])
+        utils.run('mkdir {0}tmp && chmod 0777 {0}tmp'.format(config.path['jail']))
+
+        logging.info('Add Cron in jail')
+        add = utils.file_add(
+            config.path['etc'] + 'fstab',
+            '/var/spool/cron {0}var/spool/cron   none    bind'.format(config.path['jail'])
+        )
+        if add:
+            utils.run('mkdir {0}var'.format(config.path['jail']))
+            utils.run('mkdir {0}var/spool'.format(config.path['jail']))
+            utils.run('mkdir {0}var/spool/cron'.format(config.path['jail']))
+            utils.run('umount {0}var/spool/cron'.format(config.path['jail']))
+            utils.run('mount {0}var/spool/cron'.format(config.path['jail']))
+
+        logging.info('Add Screen in jail')
+        utils.run('mkdir {0}var/run'.format(config.path['jail']))
+        utils.run('mkdir {0}var/run/screen'.format(config.path['jail']))
+        utils.run('chmod 777 {0}var/run/screen'.format(config.path['jail']))
+
+        logging.info('Enable Shell PTS in jail')
+        add = utils.file_add(
+            config.path['etc'] + 'fstab',
+            'devpts {0}/dev/pts  devpts  gid=5,mode=620      0 0'.format(config.path['jail'])
+        )
+        if add:
+            utils.run('umount {0}dev/pts'.format(config.path['jail']))
+            utils.run('mount {0}dev/pts'.format(config.path['jail']))
+
+        logging.info('Enable Shared Memory in jail')
+        add = utils.file_add(
+            config.path['etc'] + 'rc.local',
+            'mount --bind /run/shm {0}dev/shm'.format(config.path['jail'])
+        )
+        if add:
+            utils.run('mkdir {0}dev/shm'.format(config.path['jail']))
+            utils.run('umount {0}dev/shm'.format(config.path['jail']))
+            utils.run('mount --bind /run/shm {0}dev/shm'.format(config.path['jail']))
+
+        logging.info('Mount processes filesystem in jail')
+        utils.run('mkdir {0}proc'.format(config.path['jail']))
+        add = utils.file_add(
+            config.path['etc'] + 'fstab',
+            'proc   {0}proc     proc    defaults,hidepid=2  0 0'.format(config.path['jail'])
+        )
+        # add = utils.file_add(
+        #     config.path['etc'] + 'fstab',
+        #     'proc   /proc     proc    defaults,hidepid=2  0 0'.format(config.path['jail'])
+        # )
+        if add:
+            utils.run('umount {0}proc'.format(config.path['jail']))
+            utils.run('mount {0}proc'.format(config.path['jail']))
+
+        logging.info('Enable limits for users')
+        utils.run('cp -f {0}limits/limits.conf {1}security/'.format(
+            config.path['templates'], config.path['etc']
+        ))
+        utils.run('cp -f {0}limits/pt-kill.conf {1}percona-toolkit/'.format(
+            config.path['templates'], config.path['etc']
+        ))
+        utils.file_replace(
+            config.path['etc'] + 'percona-toolkit/pt-kill.conf',
+            'password=',
+            'password=' + config.password['mysql']
+        )
+        utils.run('chmod 0600 {0}percona-toolkit/pt-kill.conf'.format(config.path['etc']))
+        # Symlink to MySQL client
+        utils.run('cd /usr/lib/x86_64-linux-gnu/ && ln -s libmysqlclient.so.20 libmysqlclient.so')
+        utils.run('cd {0}usr/lib/x86_64-linux-gnu/ && ln -s libmysqlclient.so.20 libmysqlclient.so'
+                  .format(config.path['jail']))
+
+    @staticmethod
+    def update_jail():
+        logging.info('Update Jail packages')
+        # Other packages we upgrade
+        packages = ['extendedshell', 'netutils', 'ping', 'git']
+        for package in packages:
+            utils.run('jk_init -f {0} {1}'.format(config.path['jail'], package))
+        # Remove old files
+        files = [
+            '{0}usr/share/zoneinfo', '{0}usr/local/',
+            '{0}usr/share/npm', '{0}usr/bin/npm', '{0}usr/lib/node_modules/', '{0}usr/bin/nodejs', '{0}usr/bin/node'
+        ]
+        for file in files:
+            utils.run('rm -rf {0}'.format(file.format(config.path['jail'])))
+        # Copy cron and other applications to jail
+        files = [
+            'crontab', 'dircolors', 'sensible-editor', '/dev/random', 'env', 'screen', 'xargs', 'rsync',
+            'which', 'select-editor', 'editor', 'update-alternatives', 'zip', 'unzip', 'groups',
+            # Files for PHP and MySQL
+            'php', 'php5.6', 'php7.0', 'php7.1', 'php7.2', 'php7.3', 'php7.4', 
+            '/usr/lib/php/', '/var/lib/php/',
+            'mysql', 'mysqldump', 'mysqlcheck',
+            '/etc/php/5.6/cli/', '/etc/php/5.6/mods-available/',
+            '/etc/php/7.0/cli/', '/etc/php/7.0/mods-available/',
+            '/etc/php/7.1/cli/', '/etc/php/7.1/mods-available/',
+            '/etc/php/7.2/cli/', '/etc/php/7.2/mods-available/',
+            '/etc/php/7.3/cli/', '/etc/php/7.3/mods-available/',
+            '/etc/php/7.4/cli/', '/etc/php/7.4/mods-available/',
+
+            '/usr/lib/ssl/', '/usr/lib/x86_64-linux-gnu/gconv',
+            '/lib/x86_64-linux-gnu/libgcc_s.so.1', '/usr/share/zoneinfo/',
+            '/lib/i386-linux-gnu/',
+            # Git
+            '/usr/share/git-core/templates/',
+            # ImageMagick
+            'convert', '/etc/ImageMagick', '/usr/lib/x86_64-linux-gnu/ImageMagick-*',
+            '/usr/local/lib/libMagick*', '/usr/local/lib/ImageMagick-*', '/etc/ld.so.conf.d',
+            '/usr/local/share/ImageMagick-*', '/usr/local/etc/ImageMagick-*',
+            '/etc/fonts/fonts.conf',
+            # Node.JS and Composer
+            '/usr/lib/nodejs/', '/usr/share/node-*', '/usr/lib/node_modules/', '/usr/bin/nodejs', '/usr/bin/node',
+            '/usr/bin/npm', '/usr/bin/composer*',
+            # PTS
+            '/dev/pts/', '/dev/ptmx',
+            # Processes
+            'ps', 'top', 'htop'
+        ]
+        for file in files:
+            utils.run('jk_cp -j {0} -fos {1}'.format(config.path['jail'], file))
+
+        # utils.file_replace('/etc/ImageMagick/policy.xml', '.*?pattern\="PDF"',
+        #                    '<policy domain="coder" rights="read|write" pattern="PDF" />')
+        # utils.file_replace('{}/etc/ImageMagick/policy.xml'.format(config.path['jail']), '.*?pattern\="PDF"',
+        #                    '<policy domain="coder" rights="read|write" pattern="PDF" />')
+
+    @staticmethod
+    def setup_admin():
+        logging.info('Setup admin user')
+        utils.run('useradd {0} -m -G sudo -s /bin/bash'.format(config.admin))
+
+        # Set admin password
+        utils.run('echo {2} > {0}{1}/.pass'.format(config.path['tmp'], config.admin, config.password['admin']))
+        utils.run('cat {0}{1}/.pass | passwd {1}'.format(config.path['tmp'], config.admin))
+        utils.run('rm {0}{1}/.pass'.format(config.path['tmp'], config.admin))
+
+        # Install ssh key
+        key = config.path['packages'] + config.admin + '.pub'
+        if os.path.isfile(key):
+            utils.run('mkdir /home/{0}/.ssh'.format(config.admin))
+            utils.run('cat {0} > /home/{1}/.ssh/authorized_keys'.format(key, config.admin))
+
+        # Allow to restart daemon
+        utils.file_add(config.path['etc'] + 'sudoers', 'bezumkin ALL=NOPASSWD: /bin/systemctl *')
+        # logging.info('Set admin password for user "{0}": {1}'.format(config.admin, config.password['admin']))
+
+    @staticmethod
+    def register_services():
+        logging.info('Register services')
+        utils.run('chmod +x {0}action.py && chmod +x {0}scripts/*'.format(working_path))
+
+        utils.run('ln -s {0}systemd/server-keeper.service /etc/systemd/system'.format(working_path))
+        utils.run('systemctl enable server-keeper'.format(working_path))
+        res = utils.run('systemctl start server-keeper && systemctl status server-keeper')
+        if res['success'] is not True:
+            logging.error(res['message'])
+
+    @staticmethod
+    def setup_pma():
+        import json
+        logging.info('Install PhpMyAdmin')
+        utils.run('{0}action.py \'{1}\''.format(working_path, json.dumps({
+            'action': 'create',
+            'user': 'pma',
+            'system': 'pma',
+            'version': 'latest',
+            'hdd': 1000,
+            'memory_limit': 1024,
+            'time_limit': 300,
+            'mail': False,
+            'php': '7.3',
+            'gc': 0
+        })))
+
+        host = utils.file_read('/etc/hostname')
+        if host and not re.match(r'.*?\.test$', host):
+            min = randint(1, 59)
+            hour = randint(1, 23)
+            day = randint(1, 27)
+            utils.file_remove(config.path['etc'] + 'crontab', '.*?pma.*?get_cert')
+            utils.file_add(
+                config.path['etc'] + 'crontab',
+                '{0} {1}     {2} * *   root    {3}action.py'.format(min, hour, day, working_path) +
+                ' \'{"action":"nginx","user":"pma","command":"get_cert","data":["pma.' + host + '"]}\''
+            )
+
+            from actions.nginx import Nginx
+            res = Nginx('pma', {'command': 'get_cert', 'data': ['pma.' + str(host)]}).process()
+            if res['success']:
+                nginx = config.path['jail'] + 'home/pma/etc/rules.conf'
+                utils.file_add(nginx, "if ($scheme != 'https') {return 301 https://$host$request_uri;}")
+                utils.service('nginx', 'restart')
+
+
+if __name__ == "__main__":
+    method = sys.argv[1:]
+
+    if len(method):
+        Prepare(method.pop())
+    else:
+        print('You must specify action')

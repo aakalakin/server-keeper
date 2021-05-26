@@ -1,0 +1,52 @@
+app:
+  image: bezumkin/sprutio-app
+  links:
+    - redis:fm-redis
+    - rpc:fm-rpc
+  volumes_from:
+    - frontend
+  volumes:
+    - "./ssl:/app/ssl:rw"
+    - "./logs:/var/log/fm:rw"
+  env_file:
+    - "./app.env"
+
+rpc:
+  image: bezumkin/sprutio-rpc
+  links:
+    - redis:fm-redis
+  volumes_from:
+    - cron
+  volumes:
+    - "/jail:/mnt:rw"
+    - "./var:/var/spool/fm:rw"
+    - "./logs:/var/log/fm:rw"
+  env_file:
+    - "./rpc.env"
+
+nginx:
+  image: beget/sprutio-nginx
+  links:
+    - app:fm-app
+  volumes_from:
+    - cron
+    - frontend
+  volumes:
+    - "/etc/nginx/ssl:/app/ssl:ro"
+    - "./logs:/var/log/nginx:rw"
+  ports:
+    - "127.0.0.1:9080:80"
+    - "9443:443"
+
+frontend:
+  image: bezumkin/sprutio-frontend
+
+cron:
+  image: beget/sprutio-cron
+  volumes:
+    - "./downloads:/tmp/fm:rw"
+
+redis:
+  image: redis:3.0
+
+# EOF

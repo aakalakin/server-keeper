@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+
+import sys
+import os
+
+path = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/'
+sys.path.append(path)
+import logging
+import config
+from actions.backup import Backup
+
+exit('Disabled!')
+
+Backup.export()
+# Remove backups
+response = Backup.rclone('lsf', 'yandex-cloud:modhost/{} --dirs-only'.format(config.server['domain']))
+if response['success']:
+    tmp = response['message'].strip().split('\n')
+    for user in tmp:
+        response = Backup(user.strip('/'), {}).remove(max_full=(config.backup['max_full'] - 1))
+        if not response['success']:
+            logging.error(response['message'])
+        else:
+            logging.info(response['message'])
+else:
+    logging.error(response['message'])

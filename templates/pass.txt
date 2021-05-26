@@ -1,0 +1,7 @@
+Site: http://{domain}
+
+Manager user: {user}
+Manager password: {password}
+
+SSH/SFTP password: {ssh}
+MySQL password: {mysql}

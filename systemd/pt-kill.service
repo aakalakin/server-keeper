@@ -1,0 +1,15 @@
+[Unit]
+Description=Percona Toolkit Kill Service
+Requires=mysql.service
+After=mysql.service
+
+[Service]
+Type=simple
+OOMScoreAdjust=-100
+Restart=always
+PIDFile=/var/run/pt-kill.pid
+ExecStart=/usr/bin/pt-kill --config /etc/percona-toolkit/pt-kill.conf --daemonize --pid /var/run/pt-kill.pid
+ExecReload=/bin/kill -USR2 $MAINPID
+
+[Install]
+WantedBy=multi-user.target
