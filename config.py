@@ -35,7 +35,8 @@ path = {
     'php7.2': '/etc/php/7.2/fpm/pool.d/',
     'php7.3': '/etc/php/7.3/fpm/pool.d/',
     'php7.4': '/etc/php/7.4/fpm/pool.d/',
-    'php-cli': '/etc/php/7.0/cli/',
+    'php8.1': '/etc/php/8.1/fpm/pool.d/',
+    'php-cli': '/etc/php/7.4/cli/',
     'logrotate': '/etc/logrotate.d/',
     'run': '/var/run/',
     'log': '/var/log/',
@@ -73,6 +74,7 @@ commands = {
     'php7.2': 'php7.2-fpm',
     'php7.3': 'php7.3-fpm',
     'php7.4': 'php7.4-fpm',
+    'php8.1': 'php8.1-fpm',
 }
 
 cache = {

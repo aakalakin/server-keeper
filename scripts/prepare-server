@@ -133,6 +133,8 @@ class Prepare:
             'php7.3-json php7.3-gd php7.3-xml php7.3-ldap php7.3-pgsql '
             'php7.4-fpm php7.4-mbstring php7.4-mysql php7.4-curl php7.4-cli php7.4-soap php7.4-zip '
             'php7.4-json php7.4-gd php7.4-xml php7.4-ldap php7.4-pgsql '
+            'php8.1-fpm php8.1-mbstring php8.1-mysql php8.1-curl php8.1-cli php8.1-soap php8.1-zip '
+            'php8.1-gd php8.1-xml php8.1-ldap php8.1-pgsql '
             'php-db php-mbstring php-xml php-imagick php-json php-soap php-zip '
             'php-bcmath php5.6-bcmath php7.0-bcmath php7.1-bcmath php7.2-bcmath php7.3-bcmath php7.4-bcmath '
             'php-intl php7.0-intl php7.1-intl php7.2-intl php7.3-intl php7.4-intl '
@@ -168,7 +170,7 @@ class Prepare:
         utils.file_add(config.path['etc'] + 'crontab',
                        '09,39 *     * * *     root   find /jail/var/lib/php/sessions/ -atime +7 -type f -exec rm {} +'
                        .format(working_path))
-        utils.run('update-alternatives --set php /usr/bin/php7.0')
+        utils.run('update-alternatives --set php /usr/bin/php7.4')
 
         logging.info('Enable MySQL legacy extension')
         utils.run('cp {0}php/5.6/mysql.so /usr/lib/php/20131226/'.format(config.path['packages']))
@@ -181,6 +183,10 @@ class Prepare:
         utils.file_replace('/etc/php/5.6/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
         utils.file_replace('/etc/php/7.0/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
         utils.file_replace('/etc/php/7.1/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+        utils.file_replace('/etc/php/7.2/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+        utils.file_replace('/etc/php/7.3/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+        utils.file_replace('/etc/php/7.4/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
+        utils.file_replace('/etc/php/8.1/fpm/php-fpm.conf', ';rlimit_files = 1024', 'rlimit_files = 4096')
 
     @staticmethod
     def setup_mysql():
@@ -582,7 +588,7 @@ class Prepare:
             'crontab', 'dircolors', 'sensible-editor', '/dev/random', 'env', 'screen', 'xargs', 'rsync',
             'which', 'select-editor', 'editor', 'update-alternatives', 'zip', 'unzip', 'groups',
             # Files for PHP and MySQL
-            'php', 'php5.6', 'php7.0', 'php7.1', 'php7.2', 'php7.3', 'php7.4', 
+            'php', 'php5.6', 'php7.0', 'php7.1', 'php7.2', 'php7.3', 'php7.4', 'php8.1', 
             '/usr/lib/php/', '/var/lib/php/',
             'mysql', 'mysqldump', 'mysqlcheck',
             '/etc/php/5.6/cli/', '/etc/php/5.6/mods-available/',
@@ -591,6 +597,7 @@ class Prepare:
             '/etc/php/7.2/cli/', '/etc/php/7.2/mods-available/',
             '/etc/php/7.3/cli/', '/etc/php/7.3/mods-available/',
             '/etc/php/7.4/cli/', '/etc/php/7.4/mods-available/',
+            '/etc/php/8.1/cli/', '/etc/php/8.1/mods-available/',
 
             '/usr/lib/ssl/', '/usr/lib/x86_64-linux-gnu/gconv',
             '/lib/x86_64-linux-gnu/libgcc_s.so.1', '/usr/share/zoneinfo/',

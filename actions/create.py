@@ -283,7 +283,7 @@ class Create:
         utils.run(['chmod', '0644', config.path['logrotate'] + '_' + self.user])
 
         # Reloading Nginx
-        utils.service('nginx', 'restart')
+        utils.service('nginx', 'reload')
 
         # Set permissions to logs
         utils.run('chmod 0644 ' + config.path['home'] + self.user + '/log/*')

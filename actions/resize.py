@@ -103,7 +103,7 @@ class Resize:
             return utils.failure(msg)
         elif not os.path.islink(dst):
             os.symlink(src, dst)
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
             logging.info('Site enabled')
 
         # Php-fpm pool

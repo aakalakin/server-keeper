@@ -63,7 +63,7 @@ class Remove:
         Nginx(self.user, {}).remove_cert(reload=False)
 
         # Restarting Nginx
-        utils.service('nginx', 'restart')
+        utils.service('nginx', 'reload')
 
         # Trying to remove user
         res = utils.run(['userdel', '-rf', self.user])

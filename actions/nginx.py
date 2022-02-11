@@ -133,7 +133,7 @@ class Nginx:
         conf = config.path['nginx'] + 'sites-enabled/' + self.user + '.conf'
         if os.path.islink(conf):
             os.remove(conf)
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
 
             return utils.success()
         else:
@@ -153,7 +153,7 @@ class Nginx:
             return utils.failure(msg)
         elif not os.path.islink(dst):
             os.symlink(src, dst)
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
 
             return utils.success()
         else:
@@ -173,7 +173,7 @@ class Nginx:
         conf = etc + config.path['user']['nginx']
         if utils.file_remove(conf, 'location    /.well-known/acme-challenge/'):
             logging.info('Removed old settings for user "{}"'.format(self.user))
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
 
         conf = etc + config.path['user']['rules']
         backup = conf + '.tmp'
@@ -184,7 +184,7 @@ class Nginx:
             with open(conf, 'w') as file:
                 file.write('')
             logging.info('Clean user rules'.format(self.user))
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
 
         cmd = 'certbot certonly --non-interactive --cert-name {0} --webroot -w /home/{0}/www/ --domains {1} ' \
               '--agree-tos --email {2} --quiet'.format(self.user, ','.join(domains), config.watchdog['receivers'][0])
@@ -202,7 +202,7 @@ class Nginx:
             })
         else:
             logging.error(res['message'])
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
 
         return res
 
@@ -255,7 +255,7 @@ class Nginx:
             utils.run('rm {0}etc/cert.*'.format(path))
             if utils.file_remove(path + config.path['user']['nginx'], '(ssl_|listen)') is True:
                 if reload is True:
-                    utils.service('nginx', 'restart')
+                    utils.service('nginx', 'reload')
 
         return utils.success()
 
@@ -277,7 +277,7 @@ class Nginx:
                 cert.write(open(conf + 'fullchain.pem').read())
             with open(ssl + '/nginx_ssl.key', 'w') as cert:
                 cert.write(open(conf + 'privkey.pem').read())
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
 
             utils.run('cp -f {0}ssl/nginx_ssl.crt {0}ssl/sprutio.crt'.format(config.path['nginx']))
             utils.run('cp -f {0}ssl/nginx_ssl.key {0}ssl/sprutio.key'.format(config.path['nginx']))
@@ -294,7 +294,7 @@ class Nginx:
         response = utils.run('nginx -t')
 
         if response['code'] == 0:
-            utils.service('nginx', 'restart')
+            utils.service('nginx', 'reload')
             os.remove(backup)
             logging.info('Done!')
 
