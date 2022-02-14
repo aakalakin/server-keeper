@@ -276,7 +276,7 @@ class Backup:
         if passwords:
             from actions.password import Password
             Password(self.user, {'passwords': passwords}).process()
-        utils.service('nginx', 'restart')
+        utils.service('nginx', 'reload')
 
         if passwords is False:
             return utils.success()
